@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Workout Logger – Gym/Home • Sets • History Charts</title>
+<style>
+  :root{
+    --bg: #0e0f12;
+    --card: #171922;
+    --muted: #8e98a7;
+    --text: #e7ecf3;
+    --accent: #6dd3fb;
+    --accent-2:#7df7c9;
+    --danger:#ff6b6b;
+    --warning:#ffd166;
+    --ok:#50fa7b;
+    --border:#2a2f3a;
+    --chip:#1f2330;
+    --chip-text:#c7ced9;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    background:linear-gradient(180deg, #0b0c10, var(--bg));
+    color:var(--text);
+  }
+  header{
+    position:sticky; top:0; z-index:10;
+    background:rgba(14,15,18,.85); backdrop-filter: blur(6px);
+    border-bottom:1px solid var(--border);
+  }
+  .wrap{max-width:1100px; margin:0 auto; padding:16px}
+  .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+  .grow{flex:1}
+  h1{font-size:20px; margin:0 0 6px 0; letter-spacing:.2px}
+  .tabs{display:flex; gap:8px; align-items:center}
+  .tab{
+    border:1px solid var(--border); background:var(--chip);
+    color:var(--chip-text); padding:8px 14px; border-radius:999px; cursor:pointer;
+    transition:.12s transform ease, .12s background ease;
+    user-select:none;
+  }
+  .tab.active{background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#0b0d12; font-weight:700}
+  .ghost-btn{
+    border:1px solid var(--border); background:transparent; color:var(--text);
+    padding:8px 12px; border-radius:10px; cursor:pointer;
+  }
+  .primary{
+    background:linear-gradient(90deg,var(--accent),var(--accent-2));
+    color:#07131d; border:none; font-weight:700;
+  }
+  .danger{background:linear-gradient(90deg,#ff6b6b,#ff9b85); color:#2b0b0b; border:none; font-weight:700}
+  .warning{background:linear-gradient(90deg,#ffd166,#ffef99); color:#2b1900; border:none; font-weight:700}
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.25);
+  }
+  .grid{display:grid; gap:16px}
+  .grid.cols-2{grid-template-columns:1fr 1fr}
+  @media (max-width:900px){.grid.cols-2{grid-template-columns:1fr}}
+  label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px}
+  input[type="text"], input[type="number"], input[type="datetime-local"], select{
+    width:100%; background:#12141a; border:1px solid var(--border); color:var(--text);
+    padding:10px 12px; border-radius:10px; outline:none;
+  }
+  input[type="number"]{appearance:textfield}
+  .chips{display:flex; gap:8px; flex-wrap:wrap}
+  .chip{
+    background:var(--chip); border:1px solid var(--border); color:var(--chip-text);
+    padding:6px 10px; border-radius:999px; cursor:pointer; user-select:none;
+  }
+  .chip.selected{outline:2px solid var(--accent); color:var(--text)}
+  .stepper{display:flex; gap:10px; flex-wrap:wrap; margin:6px 0 18px}
+  .step{
+    display:flex; align-items:center; gap:10px;
+    background:#111319; border:1px solid var(--border); padding:10px 12px; border-radius:12px;
+  }
+  .badge{
+    width:26px; height:26px; border-radius:50%; display:grid; place-items:center;
+    background:#0f1320; border:1px solid var(--border); color:var(--muted); font-weight:700;
+  }
+  .step.active .badge{background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#0b0d12}
+  .muted{color:var(--muted)}
+  .thin{font-weight:500}
+  .flex{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+  .right{margin-left:auto}
+  .set-row{display:grid; grid-template-columns:60px 1fr 1fr 1fr auto; gap:10px; align-items:center}
+  .set-row small{color:var(--muted)}
+  .set-row .idx{
+    width:46px; height:38px; display:grid; place-items:center;
+    border:1px dashed var(--border); border-radius:8px; color:var(--muted)
+  }
+  .table{width:100%; border-collapse:collapse; margin-top:8px}
+  .table th,.table td{border-bottom:1px solid var(--border); padding:8px 6px; text-align:left; vertical-align:top}
+  .table tr:hover td{background:#12141a}
+  .exercise-card{
+    border:1px solid var(--border); background:#12141a; border-radius:12px; padding:10px 12px; margin-top:10px;
+  }
+  .tools{display:flex; gap:8px; flex-wrap:wrap}
+  .tools button{padding:6px 10px; border-radius:10px; border:1px solid var(--border); background:#0f131b; color:var(--text); cursor:pointer}
+  .tools button:hover{background:#121722}
+  .toast{
+    position:fixed; bottom:16px; right:16px; background:#121722; border:1px solid var(--border);
+    color:var(--text); padding:10px 14px; border-radius:12px; opacity:0; transform:translateY(10px);
+    transition:.2s ease; z-index:50;
+  }
+  .toast.show{opacity:1; transform:translateY(0)}
+  .section-title{display:flex; align-items:center; gap:10px; margin:4px 0 8px}
+  .section-title h2{font-size:18px; margin:0}
+  .pill{font-size:12px; background:#11141a; border:1px solid var(--border); color:var(--muted); padding:4px 8px; border-radius:999px}
+  .history-grid{display:grid; grid-template-columns:1.2fr .8fr; gap:16px}
+  @media (max-width:1000px){.history-grid{grid-template-columns:1fr}}
+  .workout-card{border:1px solid var(--border); background:#12141a; border-radius:12px; padding:12px}
+  .workout-card.active{outline:2px solid var(--accent)}
+  .mini-badge{display:inline-grid; place-items:center; background:#0e1016; border:1px solid var(--border); border-radius:8px; padding:4px 8px; color:var(--muted); font-size:12px}
+  /* Chart */
+  .chart-wrap{background:#0e1118; border:1px solid var(--border); border-radius:12px; padding:10px}
+  .chart-header{display:flex; gap:10px; align-items:center; margin-bottom:6px}
+  .legend-dot{width:10px; height:10px; border-radius:50%; background:var(--accent); display:inline-block; margin-right:6px}
+  .tooltip{
+    position:absolute; pointer-events:none; transform:translate(-50%, -120%); background:#0a0d13; border:1px solid var(--border);
+    color:var(--text); padding:6px 8px; border-radius:8px; font-size:12px; white-space:nowrap; z-index:20; display:none;
+  }
+  .empty{border:1px dashed var(--border); background:#0d0f14; border-radius:12px; padding:20px; text-align:center; color:var(--muted)}
+  .hr{height:1px; background:var(--border); margin:12px 0}
+</style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="row">
+        <div class="grow">
+          <h1>Workout Logger</h1>
+          <div class="muted thin">Plan, log, and track progress over time.</div>
+        </div>
+        <nav class="tabs" id="locationTabs">
+          <button class="tab" data-location="gym">Gym</button>
+          <button class="tab" data-location="home">Home</button>
+        </nav>
+        <button class="ghost-btn" id="goHistory">History</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- STEP INDICATOR -->
+    <div class="stepper" id="stepper">
+      <div class="step" data-step="1"><div class="badge">1</div><div>Session</div></div>
+      <div class="step" data-step="2"><div class="badge">2</div><div>Equipment</div></div>
+      <div class="step" data-step="3"><div class="badge">3</div><div>Exercises</div></div>
+      <div class="step" data-step="4"><div class="badge">4</div><div>Review</div></div>
+    </div>
+
+    <!-- STEP 1 -->
+    <section class="card grid cols-2" data-step="1">
+      <div>
+        <div class="section-title">
+          <h2>When are you training?</h2>
+          <span class="pill" id="currentLocationPill">Location: —</span>
+        </div>
+        <div class="chips" id="modeChips">
+          <div class="chip" data-mode="now">Training Now</div>
+          <div class="chip" data-mode="record">Recording a Past Session</div>
+        </div>
+        <div id="recordFields" style="display:none; margin-top:12px">
+          <label for="dt">Workout date & time</label>
+          <input type="datetime-local" id="dt" />
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="grid">
+          <div>
+            <label for="tt">What are you training?</label>
+            <select id="tt">
+              <option value="" disabled selected>Select type…</option>
+              <option>Push</option>
+              <option>Pull</option>
+              <option>Legs</option>
+              <option>Upper</option>
+              <option>Lower</option>
+              <option>Full Body</option>
+              <option value="Specific">Specific Muscle…</option>
+            </select>
+          </div>
+          <div id="muscleWrap" style="display:none">
+            <label for="muscle">Choose the muscle</label>
+            <select id="muscle">
+              <option disabled selected>Select muscle…</option>
+              <option>Chest</option><option>Back</option><option>Shoulders</option>
+              <option>Biceps</option><option>Triceps</option><option>Quads</option>
+              <option>Hamstrings</option><option>Glutes</option><option>Calves</option>
+              <option>Abs</option><option>Forearms</option><option>Traps</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title"><h2>Quick Summary</h2></div>
+        <table class="table">
+          <tbody>
+            <tr><th>Mode</th><td id="sumMode">—</td></tr>
+            <tr><th>Date/Time</th><td id="sumDT">—</td></tr>
+            <tr><th>Training</th><td id="sumTrain">—</td></tr>
+            <tr><th>Location</th><td id="sumLoc">—</td></tr>
+          </tbody>
+        </table>
+        <div class="hr"></div>
+        <div class="flex">
+          <button class="ghost-btn right primary" id="toStep2">Next → Equipment</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2 -->
+    <section class="card grid cols-2" data-step="2" style="display:none">
+      <div>
+        <div class="section-title"><h2>What equipment will you use?</h2></div>
+        <div class="grid cols-2">
+          <div><label><input type="checkbox" class="equip" value="Barbell"> Barbell</label></div>
+          <div><label><input type="checkbox" class="equip" value="Dumbbell"> Dumbbell</label></div>
+          <div><label><input type="checkbox" class="equip" value="Cable Machine"> Cable Machine</label></div>
+          <div><label><input type="checkbox" class="equip" value="Weight Machine"> Weight Machine</label></div>
+          <div><label><input type="checkbox" class="equip" value="Bodyweight"> Bodyweight</label></div>
+          <div><label><input type="checkbox" class="equip" value="Resistance Bands"> Resistance Bands</label></div>
+          <div><label><input type="checkbox" class="equip" value="Kettlebells"> Kettlebells</label></div>
+        </div>
+      </div>
+      <div>
+        <div class="section-title"><h2>Selected</h2></div>
+        <div id="equipSelected" class="chips"></div>
+        <div class="hr"></div>
+        <div class="flex">
+          <button class="ghost-btn" id="back1">← Back</button>
+          <button class="ghost-btn right primary" id="toStep3">Next → Exercises</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 3 -->
+    <section class="card" data-step="3" style="display:none">
+      <div class="section-title">
+        <h2>Add Exercises</h2>
+        <span class="pill">Tip: click a set’s “Last” hint to prefill</span>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="grid">
+          <div>
+            <label for="exName">Exercise name</label>
+            <input id="exName" type="text" list="exList" placeholder="e.g., Bench Press" />
+            <datalist id="exList"></datalist>
+          </div>
+          <div>
+            <label for="exEquip">Exercise equipment</label>
+            <select id="exEquip">
+              <option value="" selected>Same as workout / N/A</option>
+              <option>Barbell</option><option>Dumbbell</option><option>Cable Machine</option>
+              <option>Weight Machine</option><option>Bodyweight</option><option>Resistance Bands</option><option>Kettlebells</option>
+            </select>
+          </div>
+          <div class="flex">
+            <div class="grow">
+              <label for="setCount">How many sets?</label>
+              <input type="number" id="setCount" min="1" max="20" value="3" />
+            </div>
+            <button class="ghost-btn" id="buildSets">Build Set Inputs</button>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div id="prevInfo" class="empty">Enter an exercise name to see your last session & heaviest.</div>
+          <div id="setInputs"></div>
+          <div class="flex">
+            <button class="ghost-btn" id="addSet">+ Add Set</button>
+            <button class="ghost-btn warning" id="clearSets">Clear Sets</button>
+            <div class="right"></div>
+            <button class="ghost-btn primary" id="addExercise">Add Exercise</button>
+            <button class="ghost-btn primary" id="updateExercise" style="display:none">Update Exercise</button>
+            <button class="ghost-btn" id="cancelEdit" style="display:none">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div>
+        <div class="section-title"><h2>Exercises in this workout</h2></div>
+        <div id="exerciseList" class="grid"></div>
+      </div>
+
+      <div class="hr"></div>
+      <div class="flex">
+        <button class="ghost-btn" id="back2">← Back</button>
+        <button class="ghost-btn right primary" id="toStep4">Next → Review</button>
+      </div>
+    </section>
+
+    <!-- STEP 4 -->
+    <section class="card" data-step="4" style="display:none">
+      <div class="section-title"><h2>Review & Complete</h2></div>
+
+      <table class="table" id="reviewTable"><thead>
+        <tr><th>Exercise</th><th>Equipment</th><th>Sets (Weight × Reps)</th><th></th></tr>
+      </thead><tbody></tbody></table>
+
+      <div class="hr"></div>
+      <div class="flex">
+        <button class="ghost-btn" id="back3">← Back</button>
+        <button class="ghost-btn primary right" id="completeWorkout">✅ Complete Workout</button>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section style="margin-top:18px" id="history">
+      <div class="section-title"><h2>History & Progress</h2></div>
+      <div class="history-grid">
+        <div class="card">
+          <div class="chart-header">
+            <span class="legend-dot"></span> <strong>Progress over time</strong>
+            <div class="right"></div>
+            <label for="exercisePicker" style="margin:0">Exercise</label>
+            <select id="exercisePicker" style="width:220px"></select>
+          </div>
+          <div class="chart-wrap">
+            <div id="chartArea" style="position:relative">
+              <svg id="chart" width="100%" height="260" viewBox="0 0 720 260" preserveAspectRatio="xMidYMid meet"></svg>
+              <div class="tooltip" id="chartTip"></div>
+            </div>
+          </div>
+          <div class="muted" style="margin-top:6px">Shows your heaviest set weight per workout for the chosen exercise. Click a point to see details and jump to that workout.</div>
+        </div>
+
+        <div class="grid" id="workoutCards"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast">Saved ✔️</div>
+
+<script>
+/* ===========================
+   Utilities
+=========================== */
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+const fmtDT = iso => {
+  if(!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString([], {year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+};
+const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
+  const r = Math.random()*16|0, v = c==='x'?r:(r&0x3|0x8); return v.toString(16);
+});
+const toast = (msg='Saved ✔️')=>{
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1600);
+};
+
+/* ===========================
+   Data Store (localStorage)
+=========================== */
+const LS_KEY='workouts_v1';
+const loadAll = ()=> {
+  try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; }
+  catch(e){ return []; }
+};
+const saveAll = (arr)=> localStorage.setItem(LS_KEY, JSON.stringify(arr));
+
+/* ===========================
+   App State
+=========================== */
+let current = {
+  id: uuid(),
+  location: null, // 'gym'|'home'
+  mode: null,     // 'now'|'record'
+  dateTimeISO: null,
+  trainingType: null, // 'Push'|'Pull'|'Legs'|'Upper'|'Lower'|'Full Body'|'Specific'
+  specificMuscle: null,
+  equipment: [],
+  exercises: []
+};
+let editIndex = null; // editing exercise index inside current.exercises
+let history = loadAll();
+
+/* ===========================
+   Header Tabs (Gym/Home)
+=========================== */
+const locationTabs = $('#locationTabs');
+locationTabs.addEventListener('click', (e)=>{
+  const btn = e.target.closest('.tab'); if(!btn) return;
+  $$('.tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  current.location = btn.dataset.location;
+  $('#currentLocationPill').textContent = `Location: ${capitalize(current.location)}`;
+  $('#sumLoc').textContent = capitalize(current.location);
+});
+function capitalize(s){return !s? '—' : s[0].toUpperCase()+s.slice(1);}
+
+/* ===========================
+   Stepper Navigation
+=========================== */
+const stepper = $('#stepper');
+const stepSections = $$('section[data-step]');
+function setStep(n){
+  stepper.querySelectorAll('.step').forEach(s=>{
+    s.classList.toggle('active', +s.dataset.step===n);
+  });
+  stepSections.forEach(sec=>{
+    sec.style.display = (+sec.dataset.step===n)? 'grid' : 'none';
+    if(+sec.dataset.step===3 || +sec.dataset.step===4) sec.style.display = (+sec.dataset.step===n)? 'block' : 'none';
+  });
+}
+setStep(1);
+
+/* ===========================
+   STEP 1: Mode + Time + Training Type
+=========================== */
+$('#modeChips').addEventListener('click', e=>{
+  const chip = e.target.closest('.chip'); if(!chip) return;
+  $$('#modeChips .chip').forEach(c=>c.classList.remove('selected'));
+  chip.classList.add('selected');
+  const mode = chip.dataset.mode;
+  current.mode = mode==='now' ? 'now':'record';
+  $('#sumMode').textContent = (current.mode==='now') ? 'Training Now' : 'Recording';
+  if(current.mode==='record'){
+    $('#recordFields').style.display='block';
+    $('#dt').focus();
+  } else {
+    $('#recordFields').style.display='none';
+    current.dateTimeISO = new Date().toISOString();
+    $('#sumDT').textContent = fmtDT(current.dateTimeISO);
+  }
+});
+$('#dt').addEventListener('change', e=>{
+  current.dateTimeISO = e.target.value ? new Date(e.target.value).toISOString() : null;
+  $('#sumDT').textContent = fmtDT(current.dateTimeISO);
+});
+
+$('#tt').addEventListener('change', e=>{
+  const val = e.target.value;
+  current.trainingType = val;
+  const showMuscle = (val === 'Specific');
+  $('#muscleWrap').style.display = showMuscle ? 'block':'none';
+  if(!showMuscle){ current.specificMuscle = null; }
+  updateSummaryTraining();
+});
+$('#muscle').addEventListener('change', e=>{
+  current.specificMuscle = e.target.value;
+  updateSummaryTraining();
+});
+function updateSummaryTraining(){
+  let s = current.trainingType || '—';
+  if(current.trainingType==='Specific' && current.specificMuscle) s += ` (${current.specificMuscle})`;
+  $('#sumTrain').textContent = s;
+}
+$('#toStep2').addEventListener('click', ()=>{
+  if(!current.location){ alert('Please choose Gym or Home at the top.'); return; }
+  if(!current.mode){ alert('Please choose whether you are Training Now or Recording.'); return; }
+  if(current.mode==='record' && !current.dateTimeISO){ alert('Please choose a date & time for the recorded workout.'); return; }
+  if(!current.trainingType){ alert('Please select what you are training.'); return; }
+  if(current.trainingType==='Specific' && !current.specificMuscle){ alert('Please choose the specific muscle.'); return; }
+  setStep(2);
+});
+/* Back from later steps */
+$('#back1').addEventListener('click', ()=> setStep(1));
+
+/* ===========================
+   STEP 2: Equipment
+=========================== */
+const equipCheckboxes = $$('.equip');
+equipCheckboxes.forEach(cb=>{
+  cb.addEventListener('change', ()=>{
+    current.equipment = equipCheckboxes.filter(x=>x.checked).map(x=>x.value);
+    renderEquipSelected();
+  });
+});
+function renderEquipSelected(){
+  const area = $('#equipSelected'); area.innerHTML='';
+  if(current.equipment.length===0){ area.innerHTML='<span class="muted">None selected.</span>'; return; }
+  current.equipment.forEach(eq=>{
+    const span = document.createElement('span'); span.className='chip selected'; span.textContent = eq; area.appendChild(span);
+  });
+}
+$('#toStep3').addEventListener('click', ()=>{
+  setStep(3);
+  refreshExerciseSuggestions();
+});
+$('#back2').addEventListener('click', ()=> setStep(2));
+
+/* ===========================
+   STEP 3: Exercises + Sets
+=========================== */
+const prevInfo = $('#prevInfo');
+const exName = $('#exName');
+const setInputs = $('#setInputs');
+
+exName.addEventListener('input', ()=>{
+  showPrevForExercise(exName.value.trim());
+});
+
+$('#buildSets').addEventListener('click', buildSetRows);
+$('#addSet').addEventListener('click', (e)=>{ e.preventDefault(); addSetRow(); });
+$('#clearSets').addEventListener('click', (e)=>{ e.preventDefault(); setInputs.innerHTML=''; });
+
+function buildSetRows(e){
+  e && e.preventDefault();
+  setInputs.innerHTML='';
+  let n = parseInt($('#setCount').value||'0',10);
+  if(!Number.isFinite(n) || n<1) n=3;
+  for(let i=0;i<n;i++) addSetRow();
+}
+
+function addSetRow(prefill={weight:'', reps:'', hint:''}){
+  const idx = setInputs.children.length+1;
+  const row = document.createElement('div');
+  row.className='set-row';
+  row.innerHTML = `
+    <div class="idx">#${idx}</div>
+    <input type="number" step="0.5" min="0" placeholder="Weight (kg)" value="${prefill.weight}" />
+    <input type="number" step="1" min="0" placeholder="Reps" value="${prefill.reps}" />
+    <small class="muted">${prefill.hint?('Last: '+prefill.hint):''}</small>
+    <button class="ghost-btn danger" title="Remove set">Delete</button>
+  `;
+  // clicking the "Last: ..." text will prefill that set
+  const hintEl = row.children[3];
+  hintEl.style.cursor = prefill.hint ? 'pointer' : 'default';
+  hintEl.addEventListener('click', ()=>{
+    if(!prefill.hint) return;
+    const m = /([\d.]+)\s*kg\s*×\s*(\d+)/i.exec(prefill.hint);
+    if(m){ row.children[1].value = m[1]; row.children[2].value = m[2]; }
+  });
+  row.children[4].addEventListener('click', ()=>{ row.remove(); renumberSets(); });
+  setInputs.appendChild(row);
+}
+function renumberSets(){
+  [...setInputs.children].forEach((r,i)=> r.querySelector('.idx').textContent = `#${i+1}`);
+}
+
+function showPrevForExercise(name){
+  if(!name){ prevInfo.innerHTML='Enter an exercise name to see your last session & heaviest.'; prevInfo.className='empty'; return; }
+  const {last, heaviest} = getExerciseHistorySummary(name);
+  if(!last && heaviest===null){
+    prevInfo.innerHTML = `No history for <strong>${name}</strong> yet.`;
+    prevInfo.className='empty';
+    return;
+  }
+  prevInfo.className='exercise-card';
+  const lastLines = last ? last.sets.map((s,i)=>`Set ${i+1}: <code>${s.weight} kg × ${s.reps}</code>`).join('<br/>') : '—';
+  const lastDate = last ? fmtDT(last.date) : '—';
+  prevInfo.innerHTML = `
+    <div class="flex"><strong>History for ${name}</strong><span class="pill">Heaviest ever: ${heaviest??'—'} kg</span><div class="right muted">Last time: ${lastDate}</div></div>
+    <div style="margin-top:6px">${lastLines}</div>
+  `;
+  // Also, if sets are built, overlay "Last" hints row-by-row
+  const builtRows = [...setInputs.children];
+  if(builtRows.length && last){
+    builtRows.forEach((row, i)=>{
+      const lastSet = last.sets[i];
+      const hint = lastSet ? `${lastSet.weight} kg × ${lastSet.reps}` : '';
+      row.children[3].textContent = hint ? `Last: ${hint}` : '';
+      if(hint && !row.children[1].value && !row.children[2].value){
+        // Prefill with last if empty
+        row.children[1].value = lastSet.weight;
+        row.children[2].value = lastSet.reps;
+      }
+    });
+  }
+}
+
+function gatherExerciseFromUI(){
+  const name = exName.value.trim();
+  if(!name){ alert('Enter an exercise name.'); return null; }
+  const rows = [...setInputs.children];
+  if(rows.length===0){ alert('Add at least one set.'); return null; }
+  const sets = rows.map((row,i)=>{
+    const w = parseFloat(row.children[1].value||'0');
+    const r = parseInt(row.children[2].value||'0',10);
+    return { set:i+1, weight:isFinite(w)?w:0, reps:isFinite(r)?r:0 };
+  });
+  const equipment = $('#exEquip').value || null;
+  return { id: uuid(), name, equipment, sets };
+}
+
+$('#addExercise').addEventListener('click', ()=>{
+  const ex = gatherExerciseFromUI(); if(!ex) return;
+  current.exercises.push(ex);
+  renderExerciseList();
+  resetExerciseForm();
+});
+$('#updateExercise').addEventListener('click', ()=>{
+  const ex = gatherExerciseFromUI(); if(!ex) return;
+  if(editIndex===null){ return; }
+  ex.id = current.exercises[editIndex].id; // keep id
+  current.exercises[editIndex] = ex;
+  editIndex=null;
+  renderExerciseList();
+  resetExerciseForm();
+});
+$('#cancelEdit').addEventListener('click', ()=>{
+  editIndex=null; resetExerciseForm();
+});
+
+function resetExerciseForm(){
+  exName.value=''; $('#exEquip').value='';
+  $('#setCount').value='3'; setInputs.innerHTML='';
+  $('#addExercise').style.display='inline-block';
+  $('#updateExercise').style.display='none';
+  $('#cancelEdit').style.display='none';
+  prevInfo.className='empty';
+  prevInfo.innerHTML='Enter an exercise name to see your last session & heaviest.';
+}
+
+function renderExerciseList(){
+  const area = $('#exerciseList'); area.innerHTML='';
+  if(current.exercises.length===0){ area.innerHTML='<div class="empty">No exercises added yet.</div>'; return; }
+  current.exercises.forEach((ex, idx)=>{
+    const card = document.createElement('div');
+    card.className='exercise-card';
+    const setsStr = ex.sets.map(s=>`${s.weight}×${s.reps}`).join(' • ');
+    card.innerHTML = `
+      <div class="flex">
+        <div><strong>${ex.name}</strong> <span class="muted">${ex.equipment || ''}</span></div>
+        <div class="pill">${ex.sets.length} sets</div>
+        <div class="right tools">
+          <button data-act="edit">Edit</button>
+          <button data-act="del" class="danger">Delete</button>
+        </div>
+      </div>
+      <div class="muted" style="margin-top:6px">${setsStr}</div>
+    `;
+    card.querySelector('[data-act="edit"]').addEventListener('click', ()=>{
+      editIndex = idx;
+      // load into form
+      exName.value = ex.name; $('#exEquip').value = ex.equipment || '';
+      setInputs.innerHTML=''; ex.sets.forEach(s=>{
+        addSetRow({weight:String(s.weight), reps:String(s.reps), hint:''})
+      });
+      showPrevForExercise(ex.name);
+      $('#addExercise').style.display='none';
+      $('#updateExercise').style.display='inline-block';
+      $('#cancelEdit').style.display='inline-block';
+      window.scrollTo({top: document.querySelector('[data-step="3"]').offsetTop-60, behavior:'smooth'});
+    });
+    card.querySelector('[data-act="del"]').addEventListener('click', ()=>{
+      if(confirm('Delete this exercise?')){ current.exercises.splice(idx,1); renderExerciseList(); }
+    });
+    area.appendChild(card);
+  });
+}
+
+$('#toStep4').addEventListener('click', ()=>{
+  if(current.exercises.length===0){ alert('Add at least one exercise.'); return; }
+  renderReview();
+  setStep(4);
+});
+$('#back3').addEventListener('click', ()=> setStep(3));
+
+/* ===========================
+   STEP 4: Review & Complete
+=========================== */
+function renderReview(){
+  const tbody = $('#reviewTable tbody'); tbody.innerHTML='';
+  current.exercises.forEach((ex, idx)=>{
+    const tr = document.createElement('tr');
+    const setsHtml = ex.sets.map(s=>`#${s.set}: ${s.weight} kg × ${s.reps}`).join('<br/>');
+    tr.innerHTML = `
+      <td><strong>${ex.name}</strong></td>
+      <td>${ex.equipment || '—'}</td>
+      <td>${setsHtml}</td>
+      <td><button class="ghost-btn" data-idx="${idx}">Edit</button></td>
+    `;
+    tr.querySelector('button').addEventListener('click', (e)=>{
+      const i = +e.target.dataset.idx;
+      setStep(3);
+      // preload and scroll
+      editIndex = i;
+      const ex = current.exercises[i];
+      exName.value = ex.name; $('#exEquip').value = ex.equipment || '';
+      setInputs.innerHTML=''; ex.sets.forEach(s=> addSetRow({weight:String(s.weight), reps:String(s.reps)}));
+      showPrevForExercise(ex.name);
+      $('#addExercise').style.display='none';
+      $('#updateExercise').style.display='inline-block';
+      $('#cancelEdit').style.display='inline-block';
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+$('#completeWorkout').addEventListener('click', ()=>{
+  // Finalize date/time if training now
+  if(current.mode==='now' || !current.dateTimeISO) current.dateTimeISO = new Date().toISOString();
+  // Save to history
+  history.push(structuredClone(current));
+  saveAll(history);
+  toast('Workout saved to history ✔️');
+  // Reset current
+  current = { id: uuid(), location: current.location, mode: 'now', dateTimeISO:null, trainingType:null, specificMuscle:null, equipment:[], exercises:[] };
+  // Reset UI bits
+  resetExerciseForm(); renderExerciseList(); renderEquipSelected();
+  $('#sumMode').textContent='—'; $('#sumDT').textContent='—'; $('#sumTrain').textContent='—';
+  $$('#modeChips .chip').forEach(c=>c.classList.remove('selected'));
+  $('#recordFields').style.display='none'; $('#tt').value=''; $('#muscle').value=''; $('#muscleWrap').style.display='none';
+  equipCheckboxes.forEach(cb=>cb.checked=false);
+  // Go to history
+  refreshHistoryUI();
+  document.querySelector('#history').scrollIntoView({behavior:'smooth', block:'start'});
+});
+
+/* ===========================
+   History helpers
+=========================== */
+function allExerciseNames(){
+  const set = new Set();
+  history.forEach(w=> w.exercises.forEach(ex=> set.add(ex.name)));
+  return Array.from(set).sort((a,b)=> a.localeCompare(b));
+}
+function getExerciseHistorySummary(name){
+  // last occurrence and heaviest weight across all time
+  let last = null, heaviest = null;
+  const sorted = [...history].sort((a,b)=> new Date(b.dateTimeISO)-new Date(a.dateTimeISO));
+  for(const w of sorted){
+    const ex = w.exercises.find(e=> e.name.toLowerCase()===name.toLowerCase());
+    if(ex){
+      if(!last) last = { date:w.dateTimeISO, sets: ex.sets.map(s=>({weight:s.weight, reps:s.reps})) };
+      for(const s of ex.sets){ heaviest = Math.max(heaviest??0, s.weight); }
+    }
+  }
+  return { last, heaviest };
+}
+function perWorkoutTopWeight(name){
+  // return [{dateISO, weight, workoutId, repsOfHeaviest}]
+  const rows=[];
+  history.forEach(w=>{
+    let maxW = -Infinity, repsAtMax = 0;
+    let found=false;
+    w.exercises.forEach(ex=>{
+      if(ex.name.toLowerCase()===name.toLowerCase()){
+        found=true;
+        ex.sets.forEach(s=>{
+          if(s.weight>maxW){ maxW=s.weight; repsAtMax=s.reps; }
+        });
+      }
+    });
+    if(found){
+      rows.push({dateISO:w.dateTimeISO, weight:maxW, reps:repsAtMax, workoutId:w.id});
+    }
+  });
+  rows.sort((a,b)=> new Date(a.dateISO)-new Date(b.dateISO));
+  return rows;
+}
+
+/* ===========================
+   History UI + Chart
+=========================== */
+const picker = $('#exercisePicker');
+function refreshExercisePicker(){
+  const names = allExerciseNames();
+  picker.innerHTML='';
+  if(names.length===0){
+    picker.innerHTML='<option value="">No exercises yet</option>';
+  } else {
+    names.forEach(n=>{
+      const opt = document.createElement('option'); opt.value = n; opt.textContent = n; picker.appendChild(opt);
+    });
+  }
+}
+picker.addEventListener('change', ()=> drawChart(picker.value));
+
+function refreshHistoryUI(){
+  refreshExercisePicker();
+  drawChart(picker.value || picker.options[0]?.value || '');
+  renderWorkoutCards();
+  refreshExerciseSuggestions();
+}
+function renderWorkoutCards(){
+  const wrap = $('#workoutCards'); wrap.innerHTML='';
+  if(history.length===0){ wrap.innerHTML = '<div class="empty">No workouts recorded yet.</div>'; return; }
+  const sorted = [...history].sort((a,b)=> new Date(b.dateTimeISO)-new Date(a.dateTimeISO));
+  sorted.forEach(w=>{
+    const card = document.createElement('div');
+    card.className='workout-card';
+    card.id = 'w_'+w.id;
+    const head = `
+      <div class="flex">
+        <div><strong>${fmtDT(w.dateTimeISO)}</strong></div>
+        <span class="mini-badge">${capitalize(w.location)}</span>
+        <span class="mini-badge">${w.trainingType}${w.specificMuscle? ' ('+w.specificMuscle+')':''}</span>
+        <div class="right tools">
+          <button data-act="delete" class="danger">Delete</button>
+        </div>
+      </div>
+      <div class="muted" style="margin:6px 0">${w.equipment?.length? w.equipment.join(' • ') : 'No equipment recorded'}</div>
+    `;
+    const exRows = w.exercises.map(ex=>{
+      const sets = ex.sets.map(s=>`${s.weight} kg × ${s.reps}`).join(' • ');
+      return `<tr><td><strong>${ex.name}</strong><br/><span class="muted">${ex.equipment||''}</span></td><td>${sets}</td></tr>`;
+    }).join('');
+    card.innerHTML = head + `<table class="table"><tbody>${exRows}</tbody></table>`;
+    card.querySelector('[data-act="delete"]').addEventListener('click', ()=>{
+      if(confirm('Delete this workout from history?')){
+        history = history.filter(x=> x.id!==w.id);
+        saveAll(history);
+        refreshHistoryUI();
+      }
+    });
+    wrap.appendChild(card);
+  });
+}
+
+/* ===========================
+   Lightweight SVG Line Chart (clickable points)
+=========================== */
+function drawChart(exName){
+  const svg = $('#chart'); const tip = $('#chartTip');
+  svg.innerHTML='';
+  if(!exName){ svg.innerHTML = `<text x="20" y="30" fill="#7a8699">Pick an exercise to see progress…</text>`; return; }
+  const data = perWorkoutTopWeight(exName);
+  if(data.length===0){ svg.innerHTML = `<text x="20" y="30" fill="#7a8699">No data yet for ${exName}.</text>`; return; }
+
+  const W=720, H=260, padL=46, padR=16, padT=16, padB=32;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+
+  // Scales
+  const xs = (i)=> padL + (data.length===1? innerW/2 : (i * (innerW/(data.length-1))));
+  const maxY = Math.max(...data.map(d=>d.weight)) || 1;
+  const yNice = niceMax(maxY);
+  const ys = (v)=> padT + (innerH * (1 - (v / yNice)));
+
+  // Gridlines Y
+  const gy = 5;
+  for(let i=0;i<=gy;i++){
+    const yv = (yNice/gy)*i;
+    const y = ys(yv);
+    svg.appendChild(lineEl(padL, y, W-padR, y, '#1b2030', (i===gy)?2:1));
+    svg.appendChild(textEl(6, y+4, `${Math.round(yv)}`, '#637089', 11));
+  }
+
+  // X labels (dates)
+  data.forEach((d,i)=>{
+    const x = xs(i), y = H-padB+14;
+    const date = new Date(d.dateISO);
+    const label = date.toLocaleDateString([], {month:'short', day:'2-digit'});
+    svg.appendChild(textEl(x-18, y+6, label, '#637089', 11));
+  });
+
+  // Path
+  const dPath = data.map((d,i)=> `${i===0?'M':'L'} ${xs(i)} ${ys(d.weight)}`).join(' ');
+  svg.appendChild(pathEl(dPath, 'none', '#6dd3fb', 2.5));
+
+  // Points
+  data.forEach((d,i)=>{
+    const x = xs(i), y = ys(d.weight);
+    const dot = circleEl(x, y, 4.5, '#6dd3fb'); dot.style.cursor='pointer';
+    dot.addEventListener('mouseenter', (ev)=> {
+      showTip(tip, ev.clientX, ev.clientY, `${fmtDT(d.dateISO)}<br><strong>${d.weight} kg</strong> × ${d.reps} reps`);
+    });
+    dot.addEventListener('mouseleave', ()=> hideTip(tip));
+    dot.addEventListener('click', ()=>{
+      // highlight selected workout card and scroll
+      $$('.workout-card').forEach(c=>c.classList.remove('active'));
+      const el = document.getElementById('w_'+d.workoutId);
+      if(el){ el.classList.add('active'); el.scrollIntoView({behavior:'smooth', block:'center'}); }
+    });
+    svg.appendChild(dot);
+  });
+
+  // Axes
+  svg.appendChild(lineEl(padL, padT, padL, H-padB, '#2a3245', 1.5));
+  svg.appendChild(lineEl(padL, H-padB, W-padR, H-padB, '#2a3245', 1.5));
+
+  // Title
+  svg.appendChild(textEl(padL, 14, exName, '#cfe6ff', 12, 'bold'));
+
+  function lineEl(x1,y1,x2,y2,stroke,w=1){
+    const el = document.createElementNS('http://www.w3.org/2000/svg','line');
+    el.setAttribute('x1',x1); el.setAttribute('y1',y1); el.setAttribute('x2',x2); el.setAttribute('y2',y2);
+    el.setAttribute('stroke',stroke); el.setAttribute('stroke-width',w); return el;
+  }
+  function pathEl(d,fill,stroke,w){
+    const el = document.createElementNS('http://www.w3.org/2000/svg','path');
+    el.setAttribute('d',d); el.setAttribute('fill',fill); el.setAttribute('stroke',stroke); el.setAttribute('stroke-width',w); el.setAttribute('stroke-linecap','round'); el.setAttribute('stroke-linejoin','round'); return el;
+  }
+  function circleEl(cx,cy,r,fill){
+    const el = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    el.setAttribute('cx',cx); el.setAttribute('cy',cy); el.setAttribute('r',r); el.setAttribute('fill',fill);
+    el.setAttribute('stroke','#0b0c10'); el.setAttribute('stroke-width','1.5'); return el;
+  }
+  function textEl(x,y,txt,fill,fs=12,weight='normal'){
+    const el = document.createElementNS('http://www.w3.org/2000/svg','text');
+    el.setAttribute('x',x); el.setAttribute('y',y); el.setAttribute('fill',fill); el.setAttribute('font-size',fs); el.setAttribute('font-weight',weight);
+    el.textContent = txt; return el;
+  }
+  function niceMax(max){
+    if(max<=0) return 10;
+    const exp = Math.floor(Math.log10(max));
+    const base = Math.pow(10, exp);
+    const m = max/base;
+    const nice = (m<=1)?1:(m<=2)?2:(m<=5)?5:10;
+    return nice*base;
+  }
+  function showTip(el, clientX, clientY, html){
+    el.innerHTML = html; el.style.display='block';
+    const rect = svg.getBoundingClientRect();
+    el.style.left = (clientX - rect.left) + 'px';
+    el.style.top = (clientY - rect.top) + 'px';
+  }
+  function hideTip(el){ el.style.display='none'; }
+}
+
+/* ===========================
+   Suggestions (datalist)
+=========================== */
+function refreshExerciseSuggestions(){
+  const list = $('#exList'); list.innerHTML='';
+  const common = [
+    'Bench Press','Incline Dumbbell Press','Overhead Press','Lat Pulldown','Pull-Up',
+    'Barbell Row','Seated Cable Row','Deadlift','Squat','Front Squat','Leg Press','Romanian Deadlift',
+    'Lunge','Calf Raise','Biceps Curl','Hammer Curl','Triceps Pushdown','Skullcrusher',
+    'Lateral Raise','Face Pull','Hip Thrust','Leg Extension','Leg Curl','Plank','Crunch'
+  ];
+  const fromHist = allExerciseNames();
+  const names = Array.from(new Set([...fromHist, ...common])).sort((a,b)=> a.localeCompare(b));
+  names.forEach(n=>{
+    const opt = document.createElement('option'); opt.value=n; list.appendChild(opt);
+  });
+}
+
+/* ===========================
+   Navigation to History
+=========================== */
+$('#goHistory').addEventListener('click', ()=>{
+  refreshHistoryUI();
+  document.querySelector('#history').scrollIntoView({behavior:'smooth', block:'start'});
+});
+
+/* ===========================
+   Initialization
+=========================== */
+(function init(){
+  // default to Gym
+  const firstTab = $('#locationTabs .tab[data-location="gym"]');
+  firstTab.click();
+  // set default mode now
+  $('#modeChips .chip[data-mode="now"]').click();
+  // seed history UI
+  refreshHistoryUI();
+})();
+</script>
+</body>
+</html>
